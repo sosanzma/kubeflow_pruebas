@@ -1,0 +1,151 @@
+# PIPELINE DEFINITION
+# Name: enhanced-preprocessing-pipeline
+# Description: Preprocesses CSV data with validation step
+components:
+  comp-preprocess-data:
+    executorLabel: exec-preprocess-data
+    outputDefinitions:
+      artifacts:
+        processed_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-validate-data:
+    executorLabel: exec-validate-data
+    inputDefinitions:
+      artifacts:
+        input_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+          description: Input dataset to validate
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRING
+deploymentSpec:
+  executors:
+    exec-preprocess-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - preprocess_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas==2.3.1'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.1'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef preprocess_data(processed_data: Output[Dataset]) -> None:\n \
+          \   \"\"\"\n    Preprocesses CSV data and outputs as Kubeflow artifact\n\
+          \n    Args:\n        processed_data: Output dataset artifact containing\
+          \ the processed CSV\n    \"\"\"\n    import pandas as pd\n\n    print(\"\
+          \U0001F504 Starting data preprocessing...\")\n\n    # Load and process the\
+          \ data (same logic as preprocess.py)\n    df = pd.read_csv('https://raw.githubusercontent.com/mwaskom/seaborn-data/master/iris.csv')\n\
+          \    print(f\"\U0001F4CA Loaded dataset with {len(df)} rows and {len(df.columns)}\
+          \ columns\")\n\n    # Add feature engineering\n    df['sepal_area'] = df['sepal_length']\
+          \ * df['sepal_width']\n    print(\"\u2705 Added sepal_area feature\")\n\n\
+          \    # Save directly to the Kubeflow artifact path\n    df.to_csv(processed_data.path,\
+          \ index=False)\n    print(f\"\U0001F4BE Processed data saved to artifact:\
+          \ {processed_data.path}\")\n\n    # Log summary statistics\n    print(f\"\
+          \U0001F4C4 Final dataset: {len(df)} rows, {len(df.columns)} columns\")\n\
+          \    print(f\"\U0001F4C8 Columns: {list(df.columns)}\")\n\n    return None\n\
+          \n"
+        image: sosanzma/preprocess:latest
+        resources:
+          cpuLimit: 1.0
+          memoryLimit: 0.536870912
+          resourceCpuLimit: '1'
+          resourceMemoryLimit: 512Mi
+    exec-validate-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - validate_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas==2.3.1'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.1'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef validate_data(input_data: Input[Dataset]) -> str:\n    \"\"\"\
+          \n    Validates the processed dataset and returns summary statistics\n\n\
+          \    Args:\n        input_data: Input dataset to validate\n\n    Returns:\n\
+          \        Summary statistics as string\n    \"\"\"\n    import pandas as\
+          \ pd\n\n    print(f\"\U0001F50D Validating dataset at: {input_data.path}\"\
+          )\n\n    # Read the processed data\n    df = pd.read_csv(input_data.path)\n\
+          \n    # Perform validation\n    validation_results = {\n        \"rows\"\
+          : len(df),\n        \"columns\": len(df.columns),\n        \"has_sepal_area\"\
+          : \"sepal_area\" in df.columns,\n        \"no_nulls\": df.isnull().sum().sum()\
+          \ == 0,\n        \"columns_list\": list(df.columns)\n    }\n\n    print(f\"\
+          \u2705 Validation results: {validation_results}\")\n\n    return f\"Dataset\
+          \ validated: {validation_results['rows']} rows, {validation_results['columns']}\
+          \ columns\"\n\n"
+        image: python:3.9
+        resources:
+          cpuLimit: 0.5
+          memoryLimit: 0.268435456
+          resourceCpuLimit: '0.5'
+          resourceMemoryLimit: 256Mi
+pipelineInfo:
+  description: Preprocesses CSV data with validation step
+  name: enhanced-preprocessing-pipeline
+root:
+  dag:
+    tasks:
+      preprocess-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-preprocess-data
+        taskInfo:
+          name: Preprocess Data
+      validate-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-validate-data
+        dependentTasks:
+        - preprocess-data
+        inputs:
+          artifacts:
+            input_data:
+              taskOutputArtifact:
+                outputArtifactKey: processed_data
+                producerTask: preprocess-data
+        taskInfo:
+          name: Validate Processed Data
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.14.1

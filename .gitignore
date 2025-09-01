@@ -2,6 +2,7 @@
 .idea/
 *.iml
 *.iws
+*.xml
 
 # Python
 __pycache__/

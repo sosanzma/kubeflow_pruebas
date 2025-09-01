@@ -1,0 +1,322 @@
+# PIPELINE DEFINITION
+# Name: spade-ping-pong-embedded-pipeline
+# Description: Sistema multi-agente SPADE Ping-Pong con código completamente embebido
+# Inputs:
+#    max_pings: int [Default: 10.0]
+#    ping_interval: int [Default: 2.0]
+components:
+  comp-spade-ping-pong-embedded-task:
+    executorLabel: exec-spade-ping-pong-embedded-task
+    inputDefinitions:
+      parameters:
+        max_pings:
+          defaultValue: 10.0
+          description: "N\xFAmero m\xE1ximo de mensajes ping a enviar"
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+        ping_interval:
+          defaultValue: 2.0
+          description: Intervalo en segundos entre mensajes ping (actualmente no usado)
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        results_output:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-spade-ping-pong-embedded-task:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - spade_ping_pong_embedded_task
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'spade==4.0.3'\
+          \ 'pyjabber>=0.1.9,<=0.2.4' 'slixmpp>=1.8.5,<=1.9.1'  &&  python3 -m pip\
+          \ install --quiet --no-warn-script-location 'kfp==2.14.1' '--no-deps' 'typing-extensions>=3.7.4,<5;\
+          \ python_version<\"3.9\"' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef spade_ping_pong_embedded_task(\n    max_pings: int = 10,\n  \
+          \  ping_interval: int = 2,\n    results_output: Output[Dataset] = None\n\
+          ) -> None:\n    \"\"\"\n    Ejecuta un sistema multi-agente SPADE completo\
+          \ con c\xF3digo embebido\n\n    Args:\n        max_pings: N\xFAmero m\xE1\
+          ximo de mensajes ping a enviar\n        ping_interval: Intervalo en segundos\
+          \ entre mensajes ping (actualmente no usado)\n        results_output: Archivo\
+          \ de resultados JSON como artifact\n    \"\"\"\n    import asyncio\n   \
+          \ import subprocess\n    import socket\n    import signal\n    import sys\n\
+          \    import json\n    import time\n    import os\n    from pathlib import\
+          \ Path\n    from datetime import datetime\n\n    print(\"\U0001F3AF SPADE\
+          \ Ping-Pong System (Versi\xF3n Embebida) iniciado\")\n\n    # =================================================================\n\
+          \    # CLASE PROCESS MANAGER (del orchestrator.py)\n    # =================================================================\n\
+          \    class ProcessManager:\n        \"\"\"Maneja procesos de manera segura\
+          \ con cleanup autom\xE1tico\"\"\"\n\n        def __init__(self):\n     \
+          \       self.processes = []\n            self.setup_signal_handlers()\n\n\
+          \        def setup_signal_handlers(self):\n            \"\"\"Configura manejo\
+          \ de se\xF1ales para cleanup\"\"\"\n            def signal_handler(signum,\
+          \ frame):\n                print(f\"\U0001F4E1 Se\xF1al recibida: {signum}\"\
+          )\n                self.cleanup()\n                sys.exit(0)\n\n     \
+          \       signal.signal(signal.SIGTERM, signal_handler)\n            signal.signal(signal.SIGINT,\
+          \ signal_handler)\n\n        def add_process(self, process):\n         \
+          \   \"\"\"A\xF1ade proceso a la lista para cleanup\"\"\"\n            self.processes.append(process)\n\
+          \n        def cleanup(self):\n            \"\"\"Termina todos los procesos\
+          \ de manera limpia\"\"\"\n            print(\"\U0001F9F9 Iniciando cleanup\
+          \ de procesos...\")\n            for process in self.processes:\n      \
+          \          if process.poll() is None:  # Proceso a\xFAn corriendo\n    \
+          \                print(f\"\U0001F504 Terminando proceso PID: {process.pid}\"\
+          )\n                    process.terminate()\n                    try:\n \
+          \                       process.wait(timeout=5)\n                      \
+          \  print(f\"\u2705 Proceso terminado correctamente\")\n                \
+          \    except subprocess.TimeoutExpired:\n                        print(f\"\
+          \u26A0\uFE0F Proceso no respondi\xF3, forzando kill...\")\n            \
+          \            process.kill()\n                        process.wait()\n\n\
+          \    # =================================================================\n\
+          \    # FUNCIONES DE UTILIDAD (del orchestrator.py)\n    # =================================================================\n\
+          \    def find_available_port(start_port=5222):\n        \"\"\"Encuentra\
+          \ un puerto disponible empezando desde start_port\"\"\"\n        for port\
+          \ in range(start_port, start_port + 100):\n            try:\n          \
+          \      with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:\n  \
+          \                  s.bind(('localhost', port))\n                    return\
+          \ port\n            except OSError:\n                continue\n        raise\
+          \ Exception(\"No hay puertos disponibles\")\n\n    async def wait_for_xmpp_server(port=5222,\
+          \ max_attempts=15):\n        \"\"\"Espera hasta que el servidor XMPP est\xE9\
+          \ disponible\"\"\"\n        print(f\"\U0001F50D Verificando servidor XMPP\
+          \ en puerto {port}...\")\n\n        for attempt in range(max_attempts):\n\
+          \            try:\n                with socket.socket(socket.AF_INET, socket.SOCK_STREAM)\
+          \ as s:\n                    s.settimeout(2)\n                    result\
+          \ = s.connect_ex(('localhost', port))\n                    if result ==\
+          \ 0:\n                        print(f\"\u2705 Servidor XMPP disponible en\
+          \ puerto {port}\")\n                        return True\n            except\
+          \ Exception as e:\n                pass\n\n            print(f\"\u23F3 Intento\
+          \ {attempt + 1}/{max_attempts}, esperando...\")\n            await asyncio.sleep(2)\n\
+          \n        return False\n\n    async def start_xmpp_server(port, process_manager):\n\
+          \        \"\"\"Inicia el servidor XMPP usando spade run\"\"\"\n        print(f\"\
+          \U0001F4E1 Iniciando servidor XMPP en puerto {port}...\")\n\n        try:\n\
+          \            # Usar spade run sin par\xE1metros adicionales\n          \
+          \  cmd = [\"spade\", \"run\"]\n\n            print(f\"\U0001F527 Comando:\
+          \ {' '.join(cmd)}\")\n\n            process = subprocess.Popen(\n      \
+          \          cmd,\n                stdout=subprocess.PIPE,\n             \
+          \   stderr=subprocess.PIPE,\n                text=True\n            )\n\n\
+          \            print(f\"\U0001F680 Servidor XMPP iniciado (PID: {process.pid})\"\
+          )\n            process_manager.add_process(process)\n\n            # Dar\
+          \ m\xE1s tiempo para que el servidor arranque\n            await asyncio.sleep(8)\n\
+          \n            return process\n\n        except Exception as e:\n       \
+          \     print(f\"\u274C Error iniciando servidor XMPP: {e}\")\n          \
+          \  raise\n\n    # =================================================================\n\
+          \    # AGENTES SPADE (del spade_ping_pong.py)\n    # =================================================================\n\
+          \    from spade.agent import Agent\n    from spade.behaviour import CyclicBehaviour\n\
+          \    from spade.message import Message\n    from spade.template import Template\n\
+          \n    class PingAgent(Agent):\n        \"\"\"Agente que env\xEDa mensajes\
+          \ PING\"\"\"\n\n        def __init__(self, jid, password, max_pings=10):\n\
+          \            super().__init__(jid, password)\n            self.ping_count\
+          \ = 0\n            self.max_pings = max_pings\n            self.start_time\
+          \ = None\n\n        class PingBehaviour(CyclicBehaviour):\n            async\
+          \ def run(self):\n                if self.agent.start_time is None:\n  \
+          \                  self.agent.start_time = datetime.now()\n            \
+          \        print(f\"\U0001F3D3 PingAgent iniciado: {self.agent.start_time}\"\
+          )\n\n                if self.agent.ping_count < self.agent.max_pings:\n\
+          \                    # Enviar PING\n                    msg = Message(to=\"\
+          pong@localhost\")\n                    msg.set_metadata(\"performative\"\
+          , \"inform\")\n                    msg.body = f\"ping_{self.agent.ping_count}\"\
+          \n\n                    await self.send(msg)\n                    print(f\"\
+          \U0001F4E4 Ping enviado #{self.agent.ping_count}: {msg.body}\")\n      \
+          \              self.agent.ping_count += 1\n\n                    await asyncio.sleep(2)\
+          \  # Esperar 2 segundos entre pings\n                else:\n           \
+          \         print(f\"\u2705 PingAgent completado. Total pings: {self.agent.ping_count}\"\
+          )\n                    await self.agent.stop()\n\n        async def setup(self):\n\
+          \            print(\"\U0001F3D3 PingAgent configurado\")\n            ping_behaviour\
+          \ = self.PingBehaviour()\n            self.add_behaviour(ping_behaviour)\n\
+          \n    class PongAgent(Agent):\n        \"\"\"Agente que responde mensajes\
+          \ PONG\"\"\"\n\n        def __init__(self, jid, password):\n           \
+          \ super().__init__(jid, password)\n            self.pong_count = 0\n   \
+          \         self.responses = []\n\n        class PongBehaviour(CyclicBehaviour):\n\
+          \            async def run(self):\n                # Esperar mensajes\n\
+          \                msg = await self.receive(timeout=30)\n\n              \
+          \  if msg:\n                    print(f\"\U0001F4E5 Pong recibido: {msg.body}\"\
+          )\n\n                    # Responder con PONG\n                    reply\
+          \ = msg.make_reply()\n                    reply.body = f\"pong_{self.agent.pong_count}\"\
+          \n                    await self.send(reply)\n\n                    # Guardar\
+          \ estad\xEDsticas\n                    self.agent.responses.append({\n \
+          \                       \"received\": msg.body,\n                      \
+          \  \"sent\": reply.body,\n                        \"timestamp\": datetime.now().isoformat()\n\
+          \                    })\n\n                    print(f\"\U0001F4E4 Pong\
+          \ enviado #{self.agent.pong_count}: {reply.body}\")\n                  \
+          \  self.agent.pong_count += 1\n                else:\n                 \
+          \   # Timeout - probablemente PingAgent termin\xF3\n                   \
+          \ print(\"\u23F0 PongAgent timeout - terminando\")\n                   \
+          \ await self.agent.stop()\n\n        async def setup(self):\n          \
+          \  print(\"\U0001F3D3 PongAgent configurado\")\n            template = Template()\n\
+          \            template.set_metadata(\"performative\", \"inform\")\n     \
+          \       pong_behaviour = self.PongBehaviour()\n            self.add_behaviour(pong_behaviour,\
+          \ template)\n\n    # =================================================================\n\
+          \    # FUNCI\xD3N PRINCIPAL DEL SISTEMA PING-PONG\n    # =================================================================\n\
+          \    async def run_ping_pong_system(max_pings):\n        \"\"\"Funci\xF3\
+          n principal que ejecuta el sistema ping-pong\"\"\"\n\n        print(\"\U0001F680\
+          \ Iniciando sistema Ping-Pong...\")\n\n        # Crear agentes\n       \
+          \ ping_agent = PingAgent(\"ping@localhost\", \"ping_password\", max_pings)\n\
+          \        pong_agent = PongAgent(\"pong@localhost\", \"pong_password\")\n\
+          \n        # Iniciar agentes\n        await ping_agent.start()\n        await\
+          \ pong_agent.start()\n\n        print(\"\u2705 Agentes iniciados, comenzando\
+          \ intercambio...\")\n\n        # Esperar hasta que terminen\n        while\
+          \ ping_agent.is_alive() or pong_agent.is_alive():\n            await asyncio.sleep(1)\n\
+          \n        # Recopilar resultados\n        results = {\n            \"execution_summary\"\
+          : {\n                \"start_time\": ping_agent.start_time.isoformat() if\
+          \ ping_agent.start_time else None,\n                \"end_time\": datetime.now().isoformat(),\n\
+          \                \"total_pings\": ping_agent.ping_count,\n             \
+          \   \"total_pongs\": pong_agent.pong_count,\n                \"success\"\
+          : ping_agent.ping_count == pong_agent.pong_count\n            },\n     \
+          \       \"message_history\": pong_agent.responses,\n            \"agent_statistics\"\
+          : {\n                \"ping_agent\": {\n                    \"messages_sent\"\
+          : ping_agent.ping_count,\n                    \"status\": \"completed\"\n\
+          \                },\n                \"pong_agent\": {\n               \
+          \     \"messages_received\": pong_agent.pong_count,\n                  \
+          \  \"responses_sent\": len(pong_agent.responses),\n                    \"\
+          status\": \"completed\"\n                }\n            }\n        }\n\n\
+          \        print(f\"\U0001F4CA Sistema completado:\")\n        print(f\" \
+          \  - Pings enviados: {results['execution_summary']['total_pings']}\")\n\
+          \        print(f\"   - Pongs recibidos: {results['execution_summary']['total_pongs']}\"\
+          )\n        print(f\"   - \xC9xito: {results['execution_summary']['success']}\"\
+          )\n\n        return results\n\n    # =================================================================\n\
+          \    # FUNCI\xD3N PRINCIPAL EMBEBIDA (del orchestrator.py main())\n    #\
+          \ =================================================================\n  \
+          \  async def main_orchestrator():\n        \"\"\"Funci\xF3n principal del\
+          \ orquestador embebido\"\"\"\n        print(\"\U0001F3AF SPADE Pipeline\
+          \ Orchestrator embebido iniciado\")\n        print(f\"\u23F0 Tiempo inicio:\
+          \ {datetime.now().isoformat()}\")\n\n        # Inicializar gestor de procesos\n\
+          \        process_manager = ProcessManager()\n\n        try:\n          \
+          \  # 1. Encontrar puerto disponible\n            port = find_available_port(5222)\n\
+          \            print(f\"\U0001F50C Puerto disponible encontrado: {port}\"\
+          )\n\n            # 2. Iniciar servidor XMPP\n            xmpp_process =\
+          \ await start_xmpp_server(port, process_manager)\n\n            # 3. Dar\
+          \ tiempo al servidor para arrancar completamente\n            print(\"\u23F3\
+          \ Esperando a que el servidor XMPP est\xE9 completamente listo...\")\n \
+          \           await asyncio.sleep(10)\n            print(\"\u2705 Servidor\
+          \ XMPP deber\xEDa estar listo\")\n\n            # 4. Ejecutar sistema ping-pong\n\
+          \            print(\"\U0001F3D3 Ejecutando sistema Ping-Pong...\")\n   \
+          \         start_agents_time = datetime.now()\n\n            results = await\
+          \ run_ping_pong_system(max_pings)\n\n            end_agents_time = datetime.now()\n\
+          \            execution_duration = (end_agents_time - start_agents_time).total_seconds()\n\
+          \n            # 5. A\xF1adir metadatos de orquestaci\xF3n\n            results[\"\
+          orchestration\"] = {\n                \"xmpp_port\": port,\n           \
+          \     \"start_time\": start_agents_time.isoformat(),\n                \"\
+          end_time\": end_agents_time.isoformat(),\n                \"duration_seconds\"\
+          : execution_duration,\n                \"server_pid\": xmpp_process.pid\
+          \ if xmpp_process else None\n            }\n\n            # 6. Mostrar estad\xED\
+          sticas finales\n            print(\"\\\\n\U0001F4CA ESTAD\xCDSTICAS FINALES:\"\
+          )\n            print(f\"   \U0001F3D3 Mensajes Ping: {results['execution_summary']['total_pings']}\"\
+          )\n            print(f\"   \U0001F3D3 Mensajes Pong: {results['execution_summary']['total_pongs']}\"\
+          )\n            print(f\"   \u23F1\uFE0F Duraci\xF3n: {execution_duration:.2f}\
+          \ segundos\")\n            print(f\"   \u2705 \xC9xito: {results['execution_summary']['success']}\"\
+          )\n            print(f\"   \U0001F50C Puerto XMPP: {port}\")\n\n       \
+          \     return results\n\n        except Exception as e:\n            print(f\"\
+          \u274C Error en orquestaci\xF3n: {e}\")\n\n            # Crear resultados\
+          \ de error\n            error_results = {\n                \"execution_summary\"\
+          : {\n                    \"success\": False,\n                    \"error\"\
+          : str(e),\n                    \"total_pings\": 0,\n                   \
+          \ \"total_pongs\": 0,\n                    \"start_time\": datetime.now().isoformat(),\n\
+          \                    \"end_time\": datetime.now().isoformat()\n        \
+          \        },\n                \"orchestration\": {\n                    \"\
+          error\": True,\n                    \"error_details\": str(e),\n       \
+          \             \"timestamp\": datetime.now().isoformat()\n              \
+          \  }\n            }\n\n            return error_results\n\n        finally:\n\
+          \            # 7. Cleanup autom\xE1tico\n            print(\"\U0001F9F9\
+          \ Ejecutando cleanup final...\")\n            process_manager.cleanup()\n\
+          \            print(\"\u2705 Orquestador finalizado\")\n\n    # =================================================================\n\
+          \    # EJECUCI\xD3N PRINCIPAL DEL COMPONENTE\n    # =================================================================\n\
+          \    try:\n        print(\"\U0001F3AF Iniciando sistema SPADE Ping-Pong\
+          \ embebido...\")\n\n        # Ejecutar el orquestador completo\n       \
+          \ results = asyncio.run(main_orchestrator())\n\n        # Crear archivo\
+          \ de texto para el artifact\n        success = results.get(\"execution_summary\"\
+          , {}).get(\"success\", False)\n        total_pings = results.get(\"execution_summary\"\
+          , {}).get(\"total_pings\", 0)\n        total_pongs = results.get(\"execution_summary\"\
+          , {}).get(\"total_pongs\", 0)\n        duration = results.get(\"orchestration\"\
+          , {}).get(\"duration_seconds\", 0)\n        error = results.get(\"execution_summary\"\
+          , {}).get(\"error\", None)\n\n        status_text = f\"\"\"SPADE Ping-Pong\
+          \ System Results (Embebido)\n==============================================\n\
+          Overall Test Success: {success}\n\nPing-Pong Communication:\n- Messages\
+          \ Sent (Ping): {total_pings}\n- Messages Received (Pong): {total_pongs}\n\
+          - Communication Success: {total_pings == total_pongs}\n- Expected Messages:\
+          \ {max_pings}\n\nSystem Performance:\n- Total Duration: {duration:.2f} seconds\n\
+          - XMPP Server Port: {results.get('orchestration', {}).get('xmpp_port', 'Unknown')}\n\
+          - System Error: {error or 'None'}\n\nAgent Statistics:\n- Ping Agent Status:\
+          \ {results.get('agent_statistics', {}).get('ping_agent', {}).get('status',\
+          \ 'Unknown')}\n- Pong Agent Status: {results.get('agent_statistics', {}).get('pong_agent',\
+          \ {}).get('status', 'Unknown')}\n- Message History Count: {len(results.get('message_history',\
+          \ []))}\n\nTimestamp: {results.get('execution_summary', {}).get('end_time',\
+          \ 'Unknown')}\n\n\U0001F3AF RESULTADO FINAL: {'\u2705 SUCCESS' if success\
+          \ else '\u274C FAILED'}\n\n==== DETAILED RESULTS (JSON) ====\n{json.dumps(results,\
+          \ indent=2)}\n\"\"\"\n\n        # Guardar el resultado en el artifact de\
+          \ Kubeflow\n        with open(results_output.path, 'w') as f:\n        \
+          \    f.write(status_text)\n\n        print(f\"\U0001F4CB Resultado del sistema:\
+          \ {'\u2705 EXITOSO' if success else '\u274C FALL\xD3'}\")\n        print(f\"\
+          \U0001F4BE Resultados guardados en artifact: {results_output.path}\")\n\n\
+          \        # Tambi\xE9n crear un JSON con datos detallados en /output (para\
+          \ compatibilidad)\n        output_dir = Path(\"/output\")\n        output_dir.mkdir(exist_ok=True)\n\
+          \n        json_file = output_dir / \"spade_ping_pong_results.json\"\n  \
+          \      with open(json_file, \"w\") as f:\n            json.dump(results,\
+          \ f, indent=2)\n\n        print(f\"\U0001F4CA Datos detallados en: {json_file}\"\
+          )\n\n    except Exception as e:\n        print(f\"\U0001F4A5 Error fatal\
+          \ en componente embebido: {e}\")\n        import traceback\n        traceback.print_exc()\n\
+          \n        # Crear archivo de error para el artifact\n        error_text\
+          \ = f\"\"\"SPADE Ping-Pong System Results (Embebido)\n==============================================\n\
+          Overall Test Success: False\n\nFATAL ERROR: {str(e)}\n\nTimestamp: {datetime.now().isoformat()}\n\
+          \n\U0001F3AF RESULTADO FINAL: \u274C FAILED\n\nTraceback:\n{traceback.format_exc()}\n\
+          \"\"\"\n\n        with open(results_output.path, 'w') as f:\n          \
+          \  f.write(error_text)\n\n        # Re-raise para que Kubeflow marque el\
+          \ componente como fallado\n        raise\n\n    return None\n\n"
+        image: sosanzma/spade-pingpong:latest
+        resources:
+          cpuLimit: 2.0
+          memoryLimit: 1.073741824
+          resourceCpuLimit: '2'
+          resourceMemoryLimit: 1Gi
+pipelineInfo:
+  description: "Sistema multi-agente SPADE Ping-Pong con c\xF3digo completamente embebido"
+  name: spade-ping-pong-embedded-pipeline
+root:
+  dag:
+    tasks:
+      spade-ping-pong-embedded-task:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-spade-ping-pong-embedded-task
+        inputs:
+          parameters:
+            max_pings:
+              componentInputParameter: max_pings
+            ping_interval:
+              componentInputParameter: ping_interval
+        taskInfo:
+          name: SPADE Ping-Pong System (Embebido)
+  inputDefinitions:
+    parameters:
+      max_pings:
+        defaultValue: 10.0
+        description: "N\xFAmero de mensajes ping a intercambiar"
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+      ping_interval:
+        defaultValue: 2.0
+        description: Segundos entre cada ping (actualmente no usado)
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.14.1

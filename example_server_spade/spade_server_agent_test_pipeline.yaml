@@ -1,0 +1,246 @@
+# PIPELINE DEFINITION
+# Name: spade-server-agent-test-pipeline
+# Description: Test del servidor SPADE + agente simple - ejemplo intermedio extendido
+components:
+  comp-test-spade-server-with-agent:
+    executorLabel: exec-test-spade-server-with-agent
+    outputDefinitions:
+      artifacts:
+        test_results:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-test-spade-server-with-agent:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - test_spade_server_with_agent
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'spade==4.0.3'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.1'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef test_spade_server_with_agent(test_results: Output[Dataset]) ->\
+          \ None:\n    \"\"\"\n    Prueba el servidor SPADE inici\xE1ndolo, verificando\
+          \ conectividad y ejecutando un agente simple\n\n    Args:\n        test_results:\
+          \ Archivo de resultados del test como artifact\n    \"\"\"\n    import asyncio\n\
+          \    import subprocess\n    import socket\n    import json\n    import time\n\
+          \    import shutil\n    import os\n    from datetime import datetime\n \
+          \   from pathlib import Path\n\n    print(\"\U0001F3AF Iniciando test del\
+          \ servidor SPADE + agente simple...\")\n\n    # Configuraci\xF3n del test\n\
+          \    test_data = {\n        \"server_started\": False,\n        \"server_accessible\"\
+          : False,\n        \"test_duration\": 0,\n        \"start_time\": datetime.now().isoformat(),\n\
+          \        \"end_time\": None,\n        \"port\": 5222,\n        \"error\"\
+          : None\n    }\n\n    server_process = None\n\n    try:\n        # Funci\xF3\
+          n para encontrar puerto disponible\n        def find_available_port(start_port=5222):\n\
+          \            for port in range(start_port, start_port + 20):\n         \
+          \       try:\n                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM)\
+          \ as s:\n                        s.bind(('localhost', port))\n         \
+          \               return port\n                except OSError:\n         \
+          \           continue\n            raise Exception(\"No hay puertos disponibles\"\
+          )\n\n        # Paso 1: Encontrar puerto y configurar\n        test_data[\"\
+          port\"] = find_available_port()\n        port = test_data[\"port\"]\n  \
+          \      print(f\"\U0001F50C Puerto disponible: {port}\")\n\n        # Paso\
+          \ 2: Iniciar servidor SPADE\n        print(\"\U0001F4E1 Iniciando servidor\
+          \ SPADE...\")\n        cmd = [\n            \"spade\", \"run\"\n       \
+          \ ]\n\n        server_process = subprocess.Popen(\n            cmd,\n  \
+          \          stdout=subprocess.PIPE,\n            stderr=subprocess.PIPE,\n\
+          \            text=True\n        )\n\n        print(f\"\U0001F680 Servidor\
+          \ iniciado (PID: {server_process.pid})\")\n\n        # Dar tiempo para arrancar\n\
+          \        time.sleep(10)\n\n        # Verificar que el proceso sigue corriendo\n\
+          \        if server_process.poll() is None:\n            test_data[\"server_started\"\
+          ] = True\n            print(\"\u2705 Servidor SPADE iniciado correctamente\"\
+          )\n\n            # Paso 3: Probar conectividad\n            print(f\"\U0001F50D\
+          \ Probando conectividad al puerto {port}...\")\n            max_attempts\
+          \ = 10\n\n            for attempt in range(max_attempts):\n            \
+          \    try:\n                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM)\
+          \ as s:\n                        s.settimeout(3)\n                     \
+          \   result = s.connect_ex(('localhost', port))\n                       \
+          \ if result == 0:\n                            test_data[\"server_accessible\"\
+          ] = True\n                            print(f\"\u2705 Servidor accesible\
+          \ en puerto {port}\")\n                            break\n             \
+          \   except Exception:\n                    pass\n\n                print(f\"\
+          \u23F3 Intento {attempt + 1}/{max_attempts}...\")\n                time.sleep(2)\n\
+          \n            if not test_data[\"server_accessible\"]:\n               \
+          \ print(f\"\u274C Servidor no accesible despu\xE9s de {max_attempts} intentos\"\
+          )\n\n            # Paso 3: Ejecutar test de agente (c\xF3digo embebido para\
+          \ Vertex AI)\n            print(\"\U0001F916 Ejecutando test de agente simple...\"\
+          )\n            try:\n                # Importar SPADE dentro del componente\n\
+          \                from spade.agent import Agent\n                from spade.behaviour\
+          \ import CyclicBehaviour, OneShotBehaviour\n                from spade.message\
+          \ import Message\n                from spade.template import Template\n\n\
+          \                # Definir agente simple inline\n                class SimpleTestAgent(Agent):\n\
+          \                    def __init__(self, jid, password):\n              \
+          \          super().__init__(jid, password)\n                        self.messages_sent\
+          \ = 0\n                        self.messages_received = 0\n            \
+          \            self.max_messages = 5\n                        self.message_history\
+          \ = []\n                        self.start_time = None\n               \
+          \         self.test_complete = False\n\n                    class SendBehaviour(OneShotBehaviour):\n\
+          \                        async def run(self):\n                        \
+          \    self.agent.start_time = datetime.now()\n                          \
+          \  print(f\"\U0001F4E4 SimpleTestAgent iniciando env\xEDo de mensajes...\"\
+          )\n\n                            for i in range(self.agent.max_messages):\n\
+          \                                msg = Message(to=str(self.agent.jid))\n\
+          \                                msg.set_metadata(\"performative\", \"inform\"\
+          ) \n                                msg.set_metadata(\"conversation-id\"\
+          , \"test-conversation\")\n                                msg.body = f\"\
+          test_message_{i}\"\n\n                                await self.send(msg)\n\
+          \                                self.agent.messages_sent += 1\n       \
+          \                         print(f\"\U0001F4E8 Mensaje enviado #{i}: {msg.body}\"\
+          )\n\n                                self.agent.message_history.append({\n\
+          \                                    \"type\": \"sent\",\n             \
+          \                       \"message\": msg.body,\n                       \
+          \             \"timestamp\": datetime.now().isoformat(),\n             \
+          \                       \"to\": str(msg.to)\n                          \
+          \      })\n\n                                await asyncio.sleep(1)\n\n\
+          \                            print(f\"\u2705 Env\xEDo completado: {self.agent.messages_sent}\
+          \ mensajes\")\n\n                    class ReceiveBehaviour(CyclicBehaviour):\n\
+          \                        async def run(self):\n                        \
+          \    msg = await self.receive(timeout=30)\n\n                          \
+          \  if msg:\n                                self.agent.messages_received\
+          \ += 1\n                                print(f\"\U0001F4E5 Mensaje recibido\
+          \ #{self.agent.messages_received}: {msg.body}\")\n\n                   \
+          \             self.agent.message_history.append({\n                    \
+          \                \"type\": \"received\",\n                             \
+          \       \"message\": msg.body,\n                                    \"timestamp\"\
+          : datetime.now().isoformat(),\n                                    \"from\"\
+          : str(msg.sender)\n                                })\n\n              \
+          \                  if self.agent.messages_received >= self.agent.max_messages:\n\
+          \                                    print(f\"\U0001F3AF Test de mensajes\
+          \ completado: {self.agent.messages_received}/{self.agent.max_messages}\"\
+          )\n                                    self.agent.test_complete = True\n\
+          \                                    await self.agent.stop()\n         \
+          \                   else:\n                                if self.agent.messages_sent\
+          \ >= self.agent.max_messages:\n                                    print(\"\
+          \u23F0 Timeout en recepci\xF3n, terminando agente\")\n                 \
+          \                   self.agent.test_complete = True\n                  \
+          \                  await self.agent.stop()\n\n                    async\
+          \ def setup(self):\n                        print(f\"\U0001F916 SimpleTestAgent\
+          \ configurado: {self.jid}\")\n\n                        template = Template()\n\
+          \                        template.set_metadata(\"performative\", \"inform\"\
+          )\n                        template.set_metadata(\"conversation-id\", \"\
+          test-conversation\")\n\n                        receive_behaviour = self.ReceiveBehaviour()\n\
+          \                        self.add_behaviour(receive_behaviour, template)\n\
+          \n                        send_behaviour = self.SendBehaviour()\n      \
+          \                  self.add_behaviour(send_behaviour)\n\n              \
+          \  # Ejecutar test de agente inline\n                async def run_agent_test():\n\
+          \                    print(\"\U0001F680 Iniciando test del agente SPADE\
+          \ simple...\")\n\n                    agent = SimpleTestAgent(\"testagent@localhost\"\
+          , \"test_password\")\n                    await agent.start()\n        \
+          \            print(f\"\u2705 Agente iniciado: {agent.jid}\")\n\n       \
+          \             while agent.is_alive() and not agent.test_complete:\n    \
+          \                    await asyncio.sleep(1)\n\n                    end_time\
+          \ = datetime.now()\n                    duration = (end_time - agent.start_time).total_seconds()\
+          \ if agent.start_time else 0\n\n                    return {\n         \
+          \               \"agent_test_summary\": {\n                            \"\
+          success\": agent.messages_sent == agent.messages_received == agent.max_messages,\n\
+          \                            \"messages_sent\": agent.messages_sent,\n \
+          \                           \"messages_received\": agent.messages_received,\n\
+          \                            \"expected_messages\": agent.max_messages,\n\
+          \                            \"test_duration\": duration,\n            \
+          \                \"start_time\": agent.start_time.isoformat() if agent.start_time\
+          \ else None,\n                            \"end_time\": end_time.isoformat()\n\
+          \                        },\n                        \"message_history\"\
+          : agent.message_history,\n                        \"agent_info\": {\n  \
+          \                          \"jid\": str(agent.jid),\n                  \
+          \          \"status\": \"completed\" if agent.test_complete else \"timeout\"\
+          \n                        }\n                    }\n\n                #\
+          \ Ejecutar el test\n                import asyncio\n                agent_results\
+          \ = asyncio.run(run_agent_test())\n\n                # A\xF1adir resultados\
+          \ del agente\n                test_data[\"agent_test\"] = agent_results\n\
+          \                print(\"\u2705 Test de agente completado exitosamente\"\
+          )\n\n            except Exception as e:\n                print(f\"\u274C\
+          \ Error en test de agente: {e}\")\n                import traceback\n  \
+          \              traceback.print_exc()\n                test_data[\"agent_error\"\
+          ] = str(e)\n\n            # Mantener servidor corriendo un poco m\xE1s\n\
+          \            print(\"\u23F1\uFE0F Manteniendo servidor activo (5 segundos\
+          \ m\xE1s)...\")\n            time.sleep(5)\n\n        else:\n          \
+          \  print(\"\u274C El servidor SPADE fall\xF3 al iniciar\")\n           \
+          \ stdout, stderr = server_process.communicate()\n            test_data[\"\
+          error\"] = f\"Server failed: {stderr}\"\n\n    except Exception as e:\n\
+          \        print(f\"\U0001F4A5 Error durante el test: {e}\")\n        test_data[\"\
+          error\"] = str(e)\n\n    finally:\n        # Cleanup del servidor\n    \
+          \    if server_process and server_process.poll() is None:\n            print(\"\
+          \U0001F9F9 Terminando servidor...\")\n            server_process.terminate()\n\
+          \            try:\n                server_process.wait(timeout=5)\n    \
+          \            print(\"\u2705 Servidor terminado\")\n            except subprocess.TimeoutExpired:\n\
+          \                server_process.kill()\n                server_process.wait()\n\
+          \n        # Finalizar mediciones\n        test_data[\"end_time\"] = datetime.now().isoformat()\n\
+          \n        # Calcular duraci\xF3n\n        start = datetime.fromisoformat(test_data[\"\
+          start_time\"])\n        end = datetime.fromisoformat(test_data[\"end_time\"\
+          ])\n        test_data[\"test_duration\"] = (end - start).total_seconds()\n\
+          \n        # Determinar \xE9xito (incluyendo agente si existe)\n        agent_success\
+          \ = True\n        if \"agent_test\" in test_data:\n            agent_success\
+          \ = test_data[\"agent_test\"][\"agent_test_summary\"][\"success\"]\n\n \
+          \       success = (test_data[\"server_started\"] and \n                \
+          \  test_data[\"server_accessible\"] and \n                  not test_data[\"\
+          error\"] and\n                  agent_success)\n\n        test_data[\"test_success\"\
+          ] = success\n        test_data[\"summary\"] = f\"SPADE server test {'PASSED'\
+          \ if success else 'FAILED'}\"\n\n        # Crear resultado para el artifact\
+          \ con informaci\xF3n del agente\n        agent_info = \"\"\n        if \"\
+          agent_test\" in test_data:\n            agent_data = test_data[\"agent_test\"\
+          ][\"agent_test_summary\"]\n            agent_info = f\"\"\"\nAgent Test\
+          \ Results:\n- Agent Test Success: {agent_data['success']}\n- Messages Sent:\
+          \ {agent_data['messages_sent']}\n- Messages Received: {agent_data['messages_received']}\n\
+          - Expected Messages: {agent_data['expected_messages']}\n- Agent Duration:\
+          \ {agent_data['test_duration']:.2f} seconds\n\"\"\"\n        elif \"agent_error\"\
+          \ in test_data:\n            agent_info = f\"\"\"\nAgent Test Results:\n\
+          - Agent Test Success: False\n- Agent Error: {test_data['agent_error']}\n\
+          \"\"\"\n\n        status_text = f\"\"\"SPADE Server + Agent Test Results\n\
+          ==================================\nOverall Test Success: {success}\n\n\
+          Server Test:\n- Server Started: {test_data['server_started']}\n- Server\
+          \ Accessible: {test_data['server_accessible']}\n- Port Used: {test_data['port']}\n\
+          - Server Error: {test_data['error'] or 'None'}\n{agent_info}\nTotal Duration:\
+          \ {test_data['test_duration']:.2f} seconds\nSummary: {test_data['summary']}\n\
+          Timestamp: {test_data['end_time']}\n\n\U0001F3AF RESULTADO FINAL: {'\u2705\
+          \ SUCCESS' if success else '\u274C FAILED'}\n\"\"\"\n\n        # Guardar\
+          \ el resultado en el artifact de Kubeflow\n        with open(test_results.path,\
+          \ 'w') as f:\n            f.write(status_text)\n\n        print(f\"\U0001F4CB\
+          \ Resultado del test: {'\u2705 EXITOSO' if success else '\u274C FALL\xD3\
+          '}\")\n        print(f\"\U0001F4BE Resultados guardados en artifact: {test_results.path}\"\
+          )\n\n        # Tambi\xE9n crear un JSON con datos detallados en /output\
+          \ (opcional)\n        output_dir = Path(\"/output\")\n        output_dir.mkdir(exist_ok=True)\n\
+          \n        json_file = output_dir / \"spade_test_details.json\"\n       \
+          \ with open(json_file, \"w\") as f:\n            json.dump(test_data, f,\
+          \ indent=2)\n\n        print(f\"\U0001F4CA Datos detallados en: {json_file}\"\
+          )\n\n    return None\n\n"
+        image: sosanzma/spade-server-test:latest
+        resources:
+          cpuLimit: 1.0
+          memoryLimit: 0.536870912
+          resourceCpuLimit: '1'
+          resourceMemoryLimit: 512Mi
+pipelineInfo:
+  description: Test del servidor SPADE + agente simple - ejemplo intermedio extendido
+  name: spade-server-agent-test-pipeline
+root:
+  dag:
+    tasks:
+      test-spade-server-with-agent:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-test-spade-server-with-agent
+        taskInfo:
+          name: Test SPADE Server + Agent
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.14.1

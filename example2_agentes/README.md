@@ -63,7 +63,7 @@ example2/
 ├── pipeline.py                    # 🎯 Pipeline embebido completo
 ├── compile_pipeline.py            # 🔧 Compilador del pipeline
 ├── spade_ping_pong_pipeline.yaml  # 📄 Pipeline listo para Vertex AI
-├── Dockerfile                     # 🐳 Imagen Docker con SPADE
+├── requirements.txt               # 📦 Dependencias (solo para referencia)
 ├── requirements.txt               # 📦 Dependencias
 ├── README.md                      # 📚 Esta documentación
 └── output/                        # 📊 Resultados de pruebas locales
@@ -75,7 +75,7 @@ example2/
 
 ### **1. Compilar Pipeline**
 ```bash
-cd example2
+cd example2_agentes
 python compile_pipeline.py
 ```
 
@@ -153,6 +153,12 @@ Dockerfile → orchestrator.py → spade_ping_pong.py
 ```
 **Problema**: Vertex AI no puede importar archivos externos
 
+#### **Versión 1.5: Arquitectura con Docker + pip (Redundante)**
+```
+base_image='custom-docker-image' + packages_to_install=[...]
+```
+**Problema**: Doble instalación de paquetes - en Docker build y runtime pip
+
 #### **Versión 2: Arquitectura Embebida (Funciona ✅)**
 ```
 pipeline.py (todo embebido) → Vertex AI
@@ -163,9 +169,10 @@ pipeline.py (todo embebido) → Vertex AI
 
 1. **Kubeflow vs Docker**: El componente ejecuta código Python embebido, no el CMD del Dockerfile
 2. **Importaciones Externas**: No funcionan en Vertex AI - usar código embebido
-3. **Timing Distribuido**: Los sistemas multi-agente requieren timing cuidadoso
-4. **Cleanup de Procesos**: Essential para evitar procesos zombie
-5. **Manejo de Errores**: Cada paso debe tener fallback y logging
+3. **Docker Redundancy**: No necesitas Docker images si usas packages_to_install
+4. **Timing Distribuido**: Los sistemas multi-agente requieren timing cuidadoso
+5. **Cleanup de Procesos**: Essential para evitar procesos zombie
+6. **Manejo de Errores**: Cada paso debe tener fallback y logging
 
 ### **🔄 Patrón de Diseño Final**
 

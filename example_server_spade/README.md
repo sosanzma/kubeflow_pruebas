@@ -22,38 +22,26 @@ Probar que el servidor SPADE (XMPP) puede iniciarse correctamente en un contened
 ## 📁 Estructura
 
 ```
-example3/
-├── test_spade_server.py          # Script principal del test
+example_server_spade/
 ├── requirements.txt              # Dependencias SPADE
-├── Dockerfile                    # Container con SPADE
-├── pipeline.py                   # Componente Kubeflow
+├── pipeline.py                   # Componente Kubeflow con código embebido
 ├── compile_pipeline.py           # Compilador del pipeline
+├── spade_server_agent_test_pipeline.yaml  # Pipeline compilado
 └── README.md                     # Esta documentación
 ```
 
 ## 🚀 Cómo usar
 
-### 1. Construir imagen Docker
+### 1. Compilar pipeline
 
 ```bash
-cd example3
-docker build -t tu-usuario/spade-server-test:latest .
-docker push tu-usuario/spade-server-test:latest
-```
-
-### 2. Actualizar pipeline.py
-
-Cambia `base_image='sosanzma/spade-server-test:latest'` por tu imagen.
-
-### 3. Compilar pipeline
-
-```bash
+cd example_server_spade
 python compile_pipeline.py
 ```
 
-### 4. Ejecutar en Vertex AI
+### 2. Ejecutar en Vertex AI
 
-1. Sube `spade_server_test_pipeline.yaml` a Vertex AI Pipelines
+1. Sube `spade_server_agent_test_pipeline.yaml` a Vertex AI Pipelines
 2. Ejecuta el pipeline
 3. Descarga el artifact TXT con el resultado
 
@@ -102,10 +90,11 @@ En los logs del componente Kubeflow verás:
 
 Este ejemplo demuestra:
 
-- **Integración SPADE básica**: Cómo ejecutar servidor SPADE en Kubeflow
+- **Integración SPADE básica**: Cómo ejecutar servidor SPADE en Kubeflow con pip runtime installation
 - **Manejo de procesos**: Iniciar, verificar y terminar procesos correctamente  
 - **Verificación de servicios**: Test de conectividad a servicios de red
 - **Artifact generation**: Crear archivos de resultado para Kubeflow
 - **Error handling**: Manejo robusto de errores y cleanup
+- **Embedded code approach**: Todo el código embebido en el componente para Vertex AI
 
 Es el **paso previo perfecto** antes de implementar sistemas multi-agente más complejos como el example2.

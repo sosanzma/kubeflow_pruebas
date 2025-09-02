@@ -223,7 +223,7 @@ deploymentSpec:
           \ with open(json_file, \"w\") as f:\n            json.dump(test_data, f,\
           \ indent=2)\n\n        print(f\"\U0001F4CA Datos detallados en: {json_file}\"\
           )\n\n    return None\n\n"
-        image: sosanzma/spade-server-test:latest
+        image: python:3.9
         resources:
           cpuLimit: 1.0
           memoryLimit: 0.536870912

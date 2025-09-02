@@ -281,7 +281,7 @@ deploymentSpec:
           \"\"\"\n\n        with open(results_output.path, 'w') as f:\n          \
           \  f.write(error_text)\n\n        # Re-raise para que Kubeflow marque el\
           \ componente como fallado\n        raise\n\n    return None\n\n"
-        image: sosanzma/spade-pingpong:latest
+        image: python:3.9
         resources:
           cpuLimit: 2.0
           memoryLimit: 1.073741824

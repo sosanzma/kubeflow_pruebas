@@ -2,6 +2,7 @@ from kfp import dsl
 from kfp.dsl import Output, Dataset
 
 @dsl.component(
+    base_image='python:3.12',
     packages_to_install=['pandas==2.3.1']
 )
 def preprocess_data(processed_data: Output[Dataset]) -> None:

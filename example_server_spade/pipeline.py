@@ -2,6 +2,7 @@ from kfp import dsl
 from kfp.dsl import Output, Dataset
 
 @dsl.component(
+    base_image='python:3.12',
     packages_to_install=['spade==4.0.3']
 )
 def test_spade_server_with_agent(test_results: Output[Dataset]) -> None:

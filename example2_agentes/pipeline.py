@@ -2,7 +2,6 @@ from kfp import dsl
 from kfp.dsl import Output, Dataset
 
 @dsl.component(
-    base_image='sosanzma/spade-pingpong:latest',
     packages_to_install=['spade==4.0.3', 'pyjabber>=0.1.9,<=0.2.4', 'slixmpp>=1.8.5,<=1.9.1']
 )
 def spade_ping_pong_embedded_task(

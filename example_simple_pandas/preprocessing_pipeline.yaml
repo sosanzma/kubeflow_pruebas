@@ -54,7 +54,7 @@ deploymentSpec:
           \U0001F4C4 Final dataset: {len(df)} rows, {len(df.columns)} columns\")\n\
           \    print(f\"\U0001F4C8 Columns: {list(df.columns)}\")\n\n    return None\n\
           \n"
-        image: sosanzma/preprocess:latest
+        image: python:3.9
 pipelineInfo:
   description: Lee un CSV y hace preprocesamiento con pandas
   name: simple-preprocessing-pipeline

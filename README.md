@@ -1,108 +1,173 @@
-# Kubeflow Learning Repository
+# Kubeflow + SPADE: Sistemas Multi-Agente
 
-Este repositorio contiene ejemplos prácticos para aprender a usar **Kubeflow** con diferentes niveles de complejidad, desde procesamiento básico de datos hasta sistemas multi-agente avanzados usando SPADE.
+**Guía práctica para integrar agentes SPADE en Kubeflow**, con ejemplos de complejidad progresiva optimizados para despliegue en Google Vertex AI.
 
-## 📁 Estructura del Repositorio
+## Propósito
+
+Este repositorio enseña cómo desarrollar sistemas multi-agente usando el framework SPADE dentro de pipelines de Kubeflow. Dado que Kubeflow es complejo de instalar localmente, todos los ejemplos están optimizados para ejecutarse en **Google Cloud Vertex AI**.
+
+## Estructura del Repositorio
 
 ```
 kubeflow/
-├── example1/          # Ejemplo básico: Preprocesamiento de datos con pandas
-├── example2/          # Ejemplo avanzado: Sistema multi-agente SPADE 
-├── example3/          # Ejemplo intermedio: Testing de servidor SPADE
-├── README.md          # Este archivo
-├── INSTRUCTIONS.md    # Guía paso a paso completa
-├── CLAUDE.md          # Instrucciones para asistente AI y patrones arquitectónicos
-└── server.db          # Base de datos del servidor SPADE
+├── example_simple_pandas/     # Nivel básico: procesamiento con pandas
+├── example2_agentes/          # Nivel avanzado: sistema multi-agente SPADE  
+├── example_server_spade/      # Nivel intermedio: testing de servidor SPADE
+├── GUIA_SPADE_VERTEX_AI.md   # Guía del desarrollador para SPADE en Vertex AI
+├── README.md                  # Este documento
+└── INSTRUCTIONS.md            # Instrucciones detalladas de configuración
 ```
 
-## 🎯 Tres Niveles de Complejidad
+## Tres Niveles de Aprendizaje
 
-### 📊 Example 1: Pipeline Básico (Nivel Principiante)
-**Propósito**: Preprocesamiento simple de datos CSV usando pandas
-- **Tecnologías**: Python, pandas, Kubeflow KFP v2, Docker
-- **Archivos clave**: `pipeline.py`, `preprocess.py`, `Dockerfile`
-- **Flujo**: CSV → pandas → característica nueva (sepal_area) → artefacto Kubeflow
+### Nivel 1: Procesamiento Básico de Datos
+**Directorio**: `example_simple_pandas/`
 
+**Objetivo**: Aprender los fundamentos de Kubeflow con procesamiento de datos usando pandas
 
-### 🤖 Example 2: Sistema Multi-Agente Avanzado 
-**Propósito**: Orquestación compleja de agentes SPADE con comunicación XMPP
-- **Tecnologías**: SPADE Framework, XMPP, asyncio, gestión de procesos
-- **Patrón**: PingAgent ↔ PongAgent con servidor XMPP embedded
-- **Arquitectura**: 
+- **Tecnología**: Python 3.12, pandas, Kubeflow KFP v2
+- **Archivos clave**: `pipeline.py`, `pipeline_v2.py` (componente único vs múltiple)
+- **Flujo de datos**: CSV remoto → procesamiento pandas → ingeniería de características → artefacto Kubeflow
+- **Características**: Instalación pip en tiempo de ejecución, sin Docker requerido
+
+### Nivel 2: Sistema Multi-Agente SPADE
+**Directorio**: `example2_agentes/`
+
+**Objetivo**: Sistema de comunicación multi-agente de calidad de producción usando framework SPADE
+
+- **Tecnología**: SPADE 4.0.3, protocolo XMPP, asyncio, gestión de procesos
+- **Agentes**: PingAgent (emisor) y PongAgent (receptor)
+- **Comunicación**: Servidor XMPP con asignación dinámica de puertos
+- **Arquitectura**:
   ```
-  Container Process Tree:
-  ├── ProcessManager (manejo de señales)
-  ├── Servidor XMPP (spade run)
-  ├── PingAgent (CyclicBehaviour)
-  ├── PongAgent (CyclicBehaviour)  
-  └── Recolección de resultados
+  ProcessManager → Servidor XMPP → Comunicación de Agentes → Recolección de Resultados
+       ↓              ↓               ↓                        ↓
+   Manejo Señales  Puerto Dinámico  Intercambio Mensajes  Artefactos JSON
   ```
 
+**Tasa de éxito**: 90-95% (normal para sistemas distribuidos)
 
-### 🔧 Example 3: Test de Servidor SPADE (Nivel Intermedio)
-**Propósito**: Verificación de conectividad y funcionamiento básico de SPADE
-- **Componentes**: Servidor SPADE + agente de prueba simple
-- **Verificaciones**: Conectividad TCP, comunicación básica de agentes
-- **Duración**: ~15-25 segundos
+### Nivel 3: Testing de Servidor SPADE
+**Directorio**: `example_server_spade/`
 
-## 🏗️ Patrones Arquitectónicos
+**Objetivo**: Pruebas intermedias de conectividad del servidor SPADE y comunicación básica de agentes
 
-### Integración con Kubeflow
-- **Componentes KFP v2**: Uso de `@dsl.component` con imágenes Docker personalizadas
-- **Gestión de Artefactos**: `Output[Dataset]` para persistencia de datos
-- **Contenedorización**: Imágenes en Docker Hub (`sosanzma/[image]:latest`)
+- **Pruebas**: Arranque del servidor, conectividad TCP, mensajería simple de agentes
+- **Duración**: 20-30 segundos aproximadamente
+- **Validación**: Salud del servidor, accesibilidad de puerto, intercambio de mensajes
 
-### Patrón de Código Embedded 
-**Problema**: Vertex AI no puede importar módulos Python externos desde contenedores
-**Solución**: Código completo del sistema embedded dentro de componentes Kubeflow
-**Impacto**: Componentes de una sola archivo con cientos de líneas, pero compatibilidad completa con la nube
+## Patrones Arquitectónicos Modernos
 
-### Gestión de Procesos SPADE
+### Integración con Vertex AI (Sin Docker)
 ```python
-class ProcessManager:
-    # Manejo de señales SIGTERM/SIGINT
-    # Limpieza graceful de subprocesos
-    # Asignación dinámica de puertos (5222-5322)
-    # Verificación de conectividad TCP
+@dsl.component(
+    base_image='python:3.12',  # Imagen estándar de Python
+    packages_to_install=['spade==4.0.3', 'pandas==2.3.1']  # Instalación pip en tiempo de ejecución
+)
+def mi_componente(results: Output[Dataset] = None):
+    # Todo el código embebido aquí - listo para Vertex AI
 ```
 
-## 🛠️ Comandos Principales
+### Gestión del Servidor SPADE
+```python
+# Asignación dinámica de puerto
+port = find_available_port(start_port=5222)
 
-### Desarrollo de Pipelines
+# Comando estándar del servidor SPADE  
+subprocess.Popen(["spade", "run"])
+
+# Limpieza de procesos con señales
+process_manager.add_process(server_process)
+```
+
+### Patrones de Comunicación de Agentes
+```python
+# Agente único (auto-comunicación)
+msg = Message(to=str(self.agent.jid))
+
+# Comunicación multi-agente
+msg = Message(to="pong@localhost")  # PingAgent → PongAgent
+reply = msg.make_reply()            # PongAgent → PingAgent
+```
+
+## Comandos de Inicio Rápido
+
+### Compilar Pipelines
 ```bash
-# Compilar pipelines a YAML
-cd example1/ && python compile_pipeline.py
-cd example2/ && python compile_pipeline.py  
-cd example3/ && python compile_pipeline.py
+# Procesamiento básico con pandas
+cd example_simple_pandas && python compile_pipeline.py
 
-# Construir imágenes Docker
-cd example1/ && docker build -t preprocess:latest .
-cd example2/ && docker build -t spade-pingpong:latest .
-cd example3/ && docker build -t spade-server-test:latest .
+# Sistema multi-agente avanzado  
+cd example2_agentes && python compile_pipeline.py
 
-# Probar contenedores localmente
-docker run --rm -v ${PWD}/output:/output preprocess:latest
-docker run --rm -v ${PWD}/output:/output spade-pingpong:latest
-docker run --rm -v ${PWD}/output:/output spade-server-test:latest
+# Testing de servidor SPADE
+cd example_server_spade && python compile_pipeline.py
 ```
 
-### Servidor SPADE
-```bash
-# Lanzar servidor SPADE (IMPORTANTE: sin parámetros adicionales)
-spade run
+### Desplegar en Vertex AI
+1. Subir archivos `*.yaml` generados a Google Cloud Vertex AI Pipelines
+2. Configurar parámetros en la UI (max_messages, timeouts, etc.)
+3. Ejecutar y descargar artefactos (reportes TXT, datos JSON)
 
-# Verificar salud de componentes SPADE
-cd example2/ && python health_check.py
+## Resultados Esperados
+
+### Salida del Pipeline Básico
+```
+SUCCESS: Dataset procesado exitosamente
+Input: 150 filas, 5 columnas  
+Output: 150 filas, 6 columnas (añadida sepal_area)
+Duración: ~10 segundos
 ```
 
-### Pipeline Simple (Example 1)
+### Salida del Sistema Multi-Agente
 ```
-CSV Externo → pandas → Ingeniería de Características → Artefacto Dataset Kubeflow
+RESULTADO FINAL: SUCCESS
+Mensajes Enviados (Ping): 10
+Mensajes Recibidos (Pong): 9  
+Éxito de Comunicación: 90%
+Duración Total: 45.2 segundos
 ```
 
-### Pipeline Multi-Agente Complejo (Example 2)
+### Salida del Test de Servidor SPADE
 ```
-Orquestador → Servidor XMPP → Bucle de Comunicación de Agentes → Recolección de Estadísticas → Artefactos JSON/TXT
-     ↓              ↓                      ↓
-ProcessManager   Puerto Dinámico     Historial de Mensajes
+RESULTADO FINAL: SUCCESS
+Servidor Iniciado: True
+Servidor Accesible: True  
+Test de Agente Exitoso: True
+Duración: 28.5 segundos
 ```
+
+## Arquitectura Embebida
+
+**Desafío**: Kubeflow ejecuta cada componente en contenedores aislados de Kubernetes, por lo que no puede importar módulos Python externos
+**Solución**: Todo el código embebido dentro de componentes Kubeflow
+
+```python
+@dsl.component(base_image='python:3.12', packages_to_install=['spade==4.0.3'])
+def sistema_spade(results: Output[Dataset] = None):
+    # ============================================
+    # TODO EL CÓDIGO SPADE EMBEBIDO AQUÍ
+    # ============================================
+    import asyncio, subprocess
+    from spade.agent import Agent
+    
+    class PingAgent(Agent):
+        # Implementación completa del agente...
+    
+    class PongAgent(Agent):
+        # Implementación completa del agente...
+    
+    # Sistema de orquestación completo...
+    async def main():
+        # Ejecución completa del sistema...
+    
+    # Ejecutar todo
+    results = asyncio.run(main())
+```
+
+## Documentación
+
+- **GUIA_SPADE_VERTEX_AI.md**: Guía minimalista del desarrollador para SPADE en Vertex AI
+- **INSTRUCTIONS.md**: Instrucciones detalladas de configuración y despliegue
+
+

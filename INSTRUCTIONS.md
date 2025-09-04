@@ -25,15 +25,25 @@ ejemplo_nuevo/
 
 ## Paso 1: Crear pipeline.py
 
+### Definición de la función componente
+
+La función debe definir parámetros de entrada y salida específicos:
+
 ```python
 from kfp import dsl
-from kfp.dsl import Output, Dataset
+from kfp.dsl import Output, Input, Dataset
 
 @dsl.component(
     base_image='python:3.12',
     packages_to_install=['nombre_paquete']
 )
-def mi_componente(results_output: Output[Dataset] = None) -> None:
+def mi_componente(
+    # Parámetros de entrada
+    parametro_1: int = 10,
+    parametro_2: str = "valor_defecto",
+    # Parámetros de salida (crean artefactos en Kubeflow)
+    results_output: Output[Dataset] = None
+) -> None:
     # Importaciones dentro de la función
     import subprocess
     import json
@@ -41,9 +51,34 @@ def mi_componente(results_output: Output[Dataset] = None) -> None:
     # Todo el código embebido aquí
     # No se pueden importar archivos externos
     
-    # Guardar resultados
+    # Guardar resultados al artefacto
     with open(results_output.path, 'w') as f:
         f.write("Resultados de la simulación")
+```
+### Tipos de Artefactos
+
+Los parámetros `Output[Tipo]` crean artefactos descargables en Kubeflow:
+
+- `Output[Dataset]` - Para datos y resultados (archivos TXT, CSV, JSON)
+- `Output[Model]` - Para modelos entrenados
+- `Output[Metrics]` - Para métricas y estadísticas
+- `Input[Dataset]` - Para recibir artefactos de otros componentes
+
+Ejemplo de uso:
+```python
+def mi_componente(
+    datos_entrada: Input[Dataset],      # Recibe artefacto de otro componente
+    resultados: Output[Dataset],        # Crea artefacto TXT/JSON
+    modelo: Output[Model]               # Crea artefacto de modelo
+):
+    # Leer entrada
+    with open(datos_entrada.path, 'r') as f:
+        data = f.read()
+    
+    # Guardar resultados
+    with open(resultados.path, 'w') as f:
+        f.write("Resultados procesados")
+
 
 @dsl.pipeline(
     name='nombre-pipeline',

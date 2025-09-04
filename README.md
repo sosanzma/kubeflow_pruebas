@@ -1,4 +1,4 @@
-# Kubeflow + SPADE: Sistemas Multi-Agente
+# Kubeflow + SPADE
 
 **Guía práctica para integrar agentes SPADE en Kubeflow**, con ejemplos de complejidad progresiva optimizados para despliegue en Google Vertex AI.
 
@@ -46,7 +46,6 @@ kubeflow/
    Manejo Señales  Puerto Dinámico  Intercambio Mensajes  Artefactos JSON
   ```
 
-**Tasa de éxito**: 90-95% (normal para sistemas distribuidos)
 
 ### Nivel 3: Testing de Servidor SPADE
 **Directorio**: `example_server_spade/`
@@ -72,9 +71,8 @@ kubeflow/
    JSON Config   Puerto Dinámico  Drone Movement   Results Capture
   ```
 
-**Duración**: 30-60 segundos de simulación real
 
-## Patrones Arquitectónicos Modernos
+## Patrones 
 
 ### Integración con Vertex AI (Sin Docker)
 ```python
@@ -99,6 +97,8 @@ process_manager.add_process(server_process)
 ```
 
 ### Compilar Pipelines
+
+Al compilar las pipelines se crean los archivcos `*.yaml` con toda la informacion necesaria para ser ejecutados en Kubleflow/Vertex AI 
 ```bash
 # Procesamiento básico con pandas
 cd example_simple_pandas && python compile_pipeline.py
@@ -150,7 +150,6 @@ def sistema_spade(results: Output[Dataset] = None):
 
 ## Documentación
 
-- **GUIA_SPADE_VERTEX_AI.md**: Guía minimalista del desarrollador para SPADE en Vertex AI
-- **INSTRUCTIONS.md**: Instrucciones detalladas de configuración y despliegue
+- **INSTRUCTIONS.md**: guía práctica de consulta rápida para crear cualquier ejemplo nuevo en Kubeflow.
 
 

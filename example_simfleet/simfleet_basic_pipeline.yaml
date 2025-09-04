@@ -1,0 +1,198 @@
+# PIPELINE DEFINITION
+# Name: simfleet-basic-simulation-pipeline
+# Description: Simulación básica de flota usando SimFleet framework real
+# Inputs:
+#    max_simulation_time: int [Default: 30.0]
+#    num_vehicles: int [Default: 2.0]
+components:
+  comp-simfleet-basic-simulation:
+    executorLabel: exec-simfleet-basic-simulation
+    inputDefinitions:
+      parameters:
+        max_simulation_time:
+          defaultValue: 30.0
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+        num_vehicles:
+          defaultValue: 2.0
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        results_output:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-simfleet-basic-simulation:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - simfleet_basic_simulation
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'simfleet'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.14.1'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef simfleet_basic_simulation(\n    max_simulation_time: int = 30,\n\
+          \    num_vehicles: int = 2,\n    results_output: Output[Dataset] = None\n\
+          ) -> None:\n    import subprocess\n    import time\n    import json\n  \
+          \  import os\n    import tempfile\n    from datetime import datetime\n \
+          \   from pathlib import Path\n\n    print(\"Starting SimFleet simulation\
+          \ in Kubeflow...\")\n\n    def create_simulation_config():\n        config\
+          \ = {\n            \"fleets\": [],\n            \"transports\": [],\n  \
+          \          \"customers\": [],\n            \"stations\": [],\n         \
+          \   \"vehicles\": [\n                {\n                    \"speed\": 2000,\n\
+          \                    \"class\": \"simfleet.common.lib.vehicles.models.vehicle.VehicleAgent\"\
+          ,\n                    \"position\": [39.457364, -0.401621],\n         \
+          \           \"destination\": [39.45333818, -0.33223699],\n             \
+          \       \"password\": \"secret\",\n                    \"name\": \"drone1\"\
+          ,\n                    \"icon\": \"drone\"\n                }\n        \
+          \    ],\n            \"simulation_name\": \"kubeflow_fleet\",\n        \
+          \    \"max_time\": max_simulation_time,\n            \"vehicle_strategy\"\
+          : \"simfleet.common.lib.vehicles.strategies.vehicle.FSMOneShotVehicleBehaviour\"\
+          ,\n            \"host\": \"localhost\",\n            \"http_port\": 9000\n\
+          \        }\n\n        if num_vehicles >= 2:\n            config[\"vehicles\"\
+          ].append({\n                \"speed\": 1800,\n                \"class\"\
+          : \"simfleet.common.lib.vehicles.models.vehicle.VehicleAgent\",\n      \
+          \          \"position\": [39.460000, -0.405000],\n                \"destination\"\
+          : [39.450000, -0.330000],\n                \"password\": \"secret\",\n \
+          \               \"name\": \"drone2\",\n                \"icon\": \"drone\"\
+          \n            })\n\n        return config\n\n    def run_simfleet_headless():\n\
+          \        config = create_simulation_config()\n\n        with tempfile.NamedTemporaryFile(mode='w',\
+          \ suffix='.json', delete=False) as config_file:\n            json.dump(config,\
+          \ config_file, indent=2)\n            config_path = config_file.name\n\n\
+          \        print(f\"Config created: {config['simulation_name']}\")\n     \
+          \   print(f\"Vehicles: {len(config['vehicles'])}\")\n        print(f\"Max\
+          \ time: {config['max_time']} seconds\")\n\n        spade_process = None\n\
+          \        simfleet_process = None\n\n        try:\n            print(\"Step\
+          \ 1: Starting SPADE server...\")\n            spade_process = subprocess.Popen(\n\
+          \                [\"spade\", \"run\"],\n                stdout=subprocess.PIPE,\n\
+          \                stderr=subprocess.PIPE,\n                text=True\n  \
+          \          )\n\n            print(f\"SPADE server started (PID: {spade_process.pid})\"\
+          )\n            print(\"Waiting for SPADE server to initialize...\")\n  \
+          \          time.sleep(8)\n\n            print(\"Step 2: Starting SimFleet\
+          \ simulation...\")\n            simfleet_process = subprocess.Popen(\n \
+          \               [\"simfleet\", \"--config\", config_path, \"--autorun\"\
+          ],\n                stdout=subprocess.PIPE,\n                stderr=subprocess.PIPE,\n\
+          \                text=True\n            )\n\n            print(f\"SimFleet\
+          \ started (PID: {simfleet_process.pid})\")\n\n            simfleet_process.wait(timeout=max_simulation_time\
+          \ + 30)\n\n            stdout, stderr = simfleet_process.communicate()\n\
+          \n            results = {\n                \"simulation_success\": simfleet_process.returncode\
+          \ == 0,\n                \"configuration\": {\n                    \"max_time\"\
+          : max_simulation_time,\n                    \"vehicles\": num_vehicles,\n\
+          \                    \"simulation_name\": config['simulation_name']\n  \
+          \              },\n                \"simfleet_output\": stdout if stdout\
+          \ else \"\",\n                \"simfleet_errors\": stderr if stderr else\
+          \ \"\",\n                \"return_code\": simfleet_process.returncode,\n\
+          \                \"execution_time\": max_simulation_time,\n            \
+          \    \"timestamp\": datetime.now().isoformat()\n            }\n\n      \
+          \      print(\"SimFleet simulation completed\")\n            if stdout:\n\
+          \                print(\"SimFleet stdout:\")\n                print(stdout[:1000])\n\
+          \            if stderr:\n                print(\"SimFleet stderr:\")\n \
+          \               print(stderr[:1000])\n\n            return results\n\n \
+          \       except subprocess.TimeoutExpired:\n            print(\"Simulation\
+          \ timeout reached\")\n            results = {\n                \"simulation_success\"\
+          : False,\n                \"error\": \"Simulation timeout\",\n         \
+          \       \"configuration\": {\"max_time\": max_simulation_time, \"vehicles\"\
+          : num_vehicles},\n                \"timestamp\": datetime.now().isoformat()\n\
+          \            }\n            return results\n\n        except Exception as\
+          \ e:\n            print(f\"Error during simulation: {e}\")\n           \
+          \ results = {\n                \"simulation_success\": False,\n        \
+          \        \"error\": str(e),\n                \"configuration\": {\"max_time\"\
+          : max_simulation_time, \"vehicles\": num_vehicles},\n                \"\
+          timestamp\": datetime.now().isoformat()\n            }\n            return\
+          \ results\n\n        finally:\n            if simfleet_process and simfleet_process.poll()\
+          \ is None:\n                print(\"Terminating SimFleet...\")\n       \
+          \         simfleet_process.terminate()\n                try:\n         \
+          \           simfleet_process.wait(timeout=5)\n                except subprocess.TimeoutExpired:\n\
+          \                    simfleet_process.kill()\n\n            if spade_process\
+          \ and spade_process.poll() is None:\n                print(\"Terminating\
+          \ SPADE server...\")\n                spade_process.terminate()\n      \
+          \          try:\n                    spade_process.wait(timeout=5)\n   \
+          \             except subprocess.TimeoutExpired:\n                    spade_process.kill()\n\
+          \n            try:\n                os.unlink(config_path)\n           \
+          \ except:\n                pass\n\n            print(\"Cleanup completed\"\
+          )\n\n    try:\n        print(\"Executing SimFleet simulation...\")\n   \
+          \     simulation_results = run_simfleet_headless()\n\n        success =\
+          \ simulation_results.get(\"simulation_success\", False)\n        config\
+          \ = simulation_results.get(\"configuration\", {})\n\n        status_text\
+          \ = f\"\"\"SimFleet Basic Simulation Results\n====================================\n\
+          Overall Simulation Success: {success}\n\nConfiguration:\n- Simulation Time:\
+          \ {config.get('max_time', 'Unknown')} seconds\n- Number of Vehicles: {config.get('vehicles',\
+          \ 'Unknown')}\n- Simulation Name: {config.get('simulation_name', 'Unknown')}\n\
+          \nExecution Details:\n- Return Code: {simulation_results.get('return_code',\
+          \ 'N/A')}\n- Execution Time: {simulation_results.get('execution_time', 'N/A')}\
+          \ seconds\n- Error: {simulation_results.get('error', 'None')}\n\nSimFleet\
+          \ Output:\n{simulation_results.get('simfleet_output', 'No output captured')[:2000]}\n\
+          \nSimFleet Errors:\n{simulation_results.get('simfleet_errors', 'No errors')[:1000]}\n\
+          \nTimestamp: {simulation_results.get('timestamp', 'Unknown')}\n\nRESULTADO\
+          \ FINAL: {'SUCCESS' if success else 'FAILED'}\n\n==== DETAILED RESULTS (JSON)\
+          \ ====\n{json.dumps(simulation_results, indent=2)[:1000]}...\n\"\"\"\n\n\
+          \        with open(results_output.path, 'w') as f:\n            f.write(status_text)\n\
+          \n        print(f\"Results saved to artifact: {results_output.path}\")\n\
+          \        print(f\"Final Status: {'SUCCESS' if success else 'FAILED'}\")\n\
+          \n        if not success:\n            raise Exception(f\"SimFleet simulation\
+          \ failed: {simulation_results.get('error', 'Unknown error')}\")\n\n    except\
+          \ Exception as e:\n        print(f\"Error in SimFleet simulation: {e}\"\
+          )\n        import traceback\n\n        error_text = f\"\"\"SimFleet Basic\
+          \ Simulation Results\n====================================\nOverall Simulation\
+          \ Success: False\n\nFATAL ERROR: {str(e)}\n\nTimestamp: {datetime.now().isoformat()}\n\
+          \nRESULTADO FINAL: FAILED\n\nTraceback:\n{traceback.format_exc()}\n\"\"\"\
+          \n\n        with open(results_output.path, 'w') as f:\n            f.write(error_text)\n\
+          \n        raise\n\n"
+        image: python:3.12
+        resources:
+          cpuLimit: 2.0
+          memoryLimit: 2.147483648
+          resourceCpuLimit: '2'
+          resourceMemoryLimit: 2Gi
+pipelineInfo:
+  description: "Simulaci\xF3n b\xE1sica de flota usando SimFleet framework real"
+  name: simfleet-basic-simulation-pipeline
+root:
+  dag:
+    tasks:
+      simfleet-basic-simulation:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-simfleet-basic-simulation
+        inputs:
+          parameters:
+            max_simulation_time:
+              componentInputParameter: max_simulation_time
+            num_vehicles:
+              componentInputParameter: num_vehicles
+        taskInfo:
+          name: SimFleet Real Simulation
+  inputDefinitions:
+    parameters:
+      max_simulation_time:
+        defaultValue: 30.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+      num_vehicles:
+        defaultValue: 2.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.14.1

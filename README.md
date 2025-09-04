@@ -13,12 +13,13 @@ kubeflow/
 ├── example_simple_pandas/     # Nivel básico: procesamiento con pandas
 ├── example2_agentes/          # Nivel avanzado: sistema multi-agente SPADE  
 ├── example_server_spade/      # Nivel intermedio: testing de servidor SPADE
+├── example4_simfleet/         # Nivel avanzado: simulación de flota con SimFleet
 ├── GUIA_SPADE_VERTEX_AI.md   # Guía del desarrollador para SPADE en Vertex AI
 ├── README.md                  # Este documento
 └── INSTRUCTIONS.md            # Instrucciones detalladas de configuración
 ```
 
-## Tres Niveles de Aprendizaje
+## Cuatro Niveles de Aprendizaje
 
 ### Nivel 1: Procesamiento Básico de Datos
 **Directorio**: `example_simple_pandas/`
@@ -56,6 +57,23 @@ kubeflow/
 - **Duración**: 20-30 segundos aproximadamente
 - **Validación**: Salud del servidor, accesibilidad de puerto, intercambio de mensajes
 
+### Nivel 4: Simulación de Flota SimFleet
+**Directorio**: `example4_simfleet/`
+
+**Objetivo**: Simulación completa de flota de vehículos usando framework SimFleet con vehículos autónomos
+
+- **Tecnología**: SimFleet 2.0.1, SPADE backend, vehículos drone, modo headless
+- **Vehículos**: VehicleAgent con misiones origen-destino
+- **Simulación**: Ejecución automática con --autorun, sin interfaz web
+- **Arquitectura**:
+  ```
+  SimFleet Engine → SPADE Server → Vehicle Agents → Mission Execution
+       ↓              ↓              ↓                ↓
+   JSON Config   Puerto Dinámico  Drone Movement   Results Capture
+  ```
+
+**Duración**: 30-60 segundos de simulación real
+
 ## Patrones Arquitectónicos Modernos
 
 ### Integración con Vertex AI (Sin Docker)
@@ -80,18 +98,6 @@ subprocess.Popen(["spade", "run"])
 process_manager.add_process(server_process)
 ```
 
-### Patrones de Comunicación de Agentes
-```python
-# Agente único (auto-comunicación)
-msg = Message(to=str(self.agent.jid))
-
-# Comunicación multi-agente
-msg = Message(to="pong@localhost")  # PingAgent → PongAgent
-reply = msg.make_reply()            # PongAgent → PingAgent
-```
-
-## Comandos de Inicio Rápido
-
 ### Compilar Pipelines
 ```bash
 # Procesamiento básico con pandas
@@ -102,6 +108,9 @@ cd example2_agentes && python compile_pipeline.py
 
 # Testing de servidor SPADE
 cd example_server_spade && python compile_pipeline.py
+
+# Simulación de flota SimFleet
+cd example4_simfleet && python compile_pipeline.py
 ```
 
 ### Desplegar en Vertex AI
@@ -109,37 +118,11 @@ cd example_server_spade && python compile_pipeline.py
 2. Configurar parámetros en la UI (max_messages, timeouts, etc.)
 3. Ejecutar y descargar artefactos (reportes TXT, datos JSON)
 
-## Resultados Esperados
-
-### Salida del Pipeline Básico
-```
-SUCCESS: Dataset procesado exitosamente
-Input: 150 filas, 5 columnas  
-Output: 150 filas, 6 columnas (añadida sepal_area)
-Duración: ~10 segundos
-```
-
-### Salida del Sistema Multi-Agente
-```
-RESULTADO FINAL: SUCCESS
-Mensajes Enviados (Ping): 10
-Mensajes Recibidos (Pong): 9  
-Éxito de Comunicación: 90%
-Duración Total: 45.2 segundos
-```
-
-### Salida del Test de Servidor SPADE
-```
-RESULTADO FINAL: SUCCESS
-Servidor Iniciado: True
-Servidor Accesible: True  
-Test de Agente Exitoso: True
-Duración: 28.5 segundos
-```
 
 ## Arquitectura Embebida
 
 **Desafío**: Kubeflow ejecuta cada componente en contenedores aislados de Kubernetes, por lo que no puede importar módulos Python externos
+
 **Solución**: Todo el código embebido dentro de componentes Kubeflow
 
 ```python

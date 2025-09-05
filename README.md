@@ -1,150 +1,110 @@
 # Kubeflow + SPADE
 
-**Guía práctica para integrar agentes SPADE en Kubeflow**, con ejemplos de complejidad progresiva optimizados para despliegue en Google Vertex AI.
+**Integración de agentes SPADE en Kubeflow** con ejemplos de complejidad progresiva para Google Vertex AI.
 
 ## Propósito
 
-Este repositorio enseña cómo desarrollar sistemas multi-agente usando el framework SPADE dentro de pipelines de Kubeflow. Dado que Kubeflow es complejo de instalar localmente, todos los ejemplos están optimizados para ejecutarse en **Google Cloud Vertex AI**.
+Desarrollar sistemas multi-agente usando framework SPADE en pipelines Kubeflow. Todos los ejemplos optimizados para **Google Cloud Vertex AI**.
 
 ## Estructura del Repositorio
 
 ```
 kubeflow/
-├── example_simple_pandas/     # Nivel básico: procesamiento con pandas
-├── example2_agentes/          # Nivel avanzado: sistema multi-agente SPADE  
-├── example_server_spade/      # Nivel intermedio: testing de servidor SPADE
-├── example4_simfleet/         # Nivel avanzado: simulación de flota con SimFleet
-├── GUIA_SPADE_VERTEX_AI.md   # Guía del desarrollador para SPADE en Vertex AI
-├── README.md                  # Este documento
-└── INSTRUCTIONS.md            # Instrucciones detalladas de configuración
+├── example_simple_pandas/     # Nivel 1: procesamiento con pandas
+├── example2_agentes/          # Nivel 2: sistema multi-agente SPADE  
+├── example_server_spade/      # Nivel 3: testing de servidor SPADE
+├── example_simfleet/          # Nivel 4: simulación de flota SimFleet
+├── CLAUDE.md                  # Instrucciones para Claude Code
+└── README.md                  # Este documento
 ```
 
-## Cuatro Niveles de Aprendizaje
+## Cuatro Niveles de Complejidad
 
-### Nivel 1: Procesamiento Básico de Datos
+### **Nivel 1: Procesamiento Básico**
 **Directorio**: `example_simple_pandas/`
-
-**Objetivo**: Aprender los fundamentos de Kubeflow con procesamiento de datos usando pandas
-
 - **Tecnología**: Python 3.12, pandas, Kubeflow KFP v2
-- **Archivos clave**: `pipeline.py`, `pipeline_v2.py` (componente único vs múltiple)
-- **Flujo de datos**: CSV remoto → procesamiento pandas → ingeniería de características → artefacto Kubeflow
-- **Características**: Instalación pip en tiempo de ejecución, sin Docker requerido
+- **Flujo**: CSV remoto → procesamiento pandas → artefacto Kubeflow
+- **Características**: Sin Docker, instalación pip runtime
 
-### Nivel 2: Sistema Multi-Agente SPADE
+### **Nivel 2: Sistema Multi-Agente** 
 **Directorio**: `example2_agentes/`
-
-**Objetivo**: Sistema de comunicación multi-agente de calidad de producción usando framework SPADE
-
-- **Tecnología**: SPADE 4.0.3, protocolo XMPP, asyncio, gestión de procesos
+- **Tecnología**: SPADE 4.0.3, protocolo XMPP, asyncio
 - **Agentes**: PingAgent (emisor) y PongAgent (receptor)
-- **Comunicación**: Servidor XMPP con asignación dinámica de puertos
 - **Arquitectura**:
   ```
-  ProcessManager → Servidor XMPP → Comunicación de Agentes → Recolección de Resultados
-       ↓              ↓               ↓                        ↓
-   Manejo Señales  Puerto Dinámico  Intercambio Mensajes  Artefactos JSON
+  ProcessManager → Servidor XMPP → Comunicación Agentes → Resultados
   ```
 
-
-### Nivel 3: Testing de Servidor SPADE
+### **Nivel 3: Testing Servidor SPADE**
 **Directorio**: `example_server_spade/`
+- **Objetivo**: Verificar arranque servidor y conectividad TCP
+- **Duración**: ~20-30 segundos
+- **Validación**: Salud servidor, puerto accesible
 
-**Objetivo**: Pruebas intermedias de conectividad del servidor SPADE y comunicación básica de agentes
-
-- **Pruebas**: Arranque del servidor, conectividad TCP, mensajería simple de agentes
-- **Duración**: 20-30 segundos aproximadamente
-- **Validación**: Salud del servidor, accesibilidad de puerto, intercambio de mensajes
-
-### Nivel 4: Simulación de Flota SimFleet
-**Directorio**: `example4_simfleet/`
-
-**Objetivo**: Simulación completa de flota de vehículos usando framework SimFleet con vehículos autónomos
-
-- **Tecnología**: SimFleet 2.0.1, SPADE backend, vehículos drone, modo headless
-- **Vehículos**: VehicleAgent con misiones origen-destino
-- **Simulación**: Ejecución automática con --autorun, sin interfaz web
+### **Nivel 4: Simulación Flota SimFleet**
+**Directorio**: `example_simfleet/`
+- **Tecnología**: SimFleet 2.0.1, vehículos drone, modo headless
 - **Arquitectura**:
   ```
   SimFleet Engine → SPADE Server → Vehicle Agents → Mission Execution
-       ↓              ↓              ↓                ↓
-   JSON Config   Puerto Dinámico  Drone Movement   Results Capture
   ```
 
+## Patrones de Integración
 
-## Patrones 
-
-### Integración con Vertex AI (Sin Docker)
+### **Vertex AI (Sin Docker)**
 ```python
 @dsl.component(
-    base_image='python:3.12',  # Imagen estándar de Python
-    packages_to_install=['spade==4.0.3', 'pandas==2.3.1']  # Instalación pip en tiempo de ejecución
+    base_image='python:3.12',
+    packages_to_install=['spade==4.0.3', 'pandas==2.3.1']
 )
 def mi_componente(results: Output[Dataset] = None):
-    # Todo el código embebido aquí - listo para Vertex AI
+    # Todo el código embebido aquí
 ```
 
-### Gestión del Servidor SPADE
+### **Gestión Servidor SPADE**
 ```python
-# Asignación dinámica de puerto
+# Puerto dinámico
 port = find_available_port(start_port=5222)
 
-# Comando estándar del servidor SPADE  
+# Servidor estándar  
 subprocess.Popen(["spade", "run"])
 
-# Limpieza de procesos con señales
+# Cleanup procesos
 process_manager.add_process(server_process)
 ```
 
-### Compilar Pipelines
+## Compilar y Desplegar
 
-Al compilar las pipelines se crean los archivcos `*.yaml` con toda la informacion necesaria para ser ejecutados en Kubleflow/Vertex AI 
+### **Compilar Pipelines**
 ```bash
-# Procesamiento básico con pandas
 cd example_simple_pandas && python compile_pipeline.py
-
-# Sistema multi-agente avanzado  
-cd example2_agentes && python compile_pipeline.py
-
-# Testing de servidor SPADE
+cd example2_agentes && python compile_pipeline.py  
 cd example_server_spade && python compile_pipeline.py
-
-# Simulación de flota SimFleet
-cd example4_simfleet && python compile_pipeline.py
+cd example_simfleet && python compile_pipeline.py
 ```
 
-### Desplegar en Vertex AI
-1. Subir archivos `*.yaml` generados a Google Cloud Vertex AI Pipelines
-2. Configurar parámetros en la UI (max_messages, timeouts, etc.)
-3. Ejecutar y descargar artefactos (reportes TXT, datos JSON)
-
+### **Desplegar en Vertex AI**
+1. Subir archivos `*.yaml` a Google Cloud Vertex AI Pipelines
+2. Configurar parámetros (max_messages, timeouts, etc.)
+3. Ejecutar y descargar artefactos (TXT, JSON)
 
 ## Arquitectura Embebida
 
-**Desafío**: Kubeflow ejecuta cada componente en contenedores aislados de Kubernetes, por lo que no puede importar módulos Python externos
+**Problema**: Kubeflow no puede importar módulos Python externos en contenedores.
 
-**Solución**: Todo el código embebido dentro de componentes Kubeflow
+**Solución**: Código completo embebido en componentes Kubeflow.
 
 ```python
 @dsl.component(base_image='python:3.12', packages_to_install=['spade==4.0.3'])
 def sistema_spade(results: Output[Dataset] = None):
-    # ============================================
-    # TODO EL CÓDIGO SPADE EMBEBIDO AQUÍ
-    # ============================================
+    # TODO EL CÓDIGO EMBEBIDO AQUÍ
     import asyncio, subprocess
     from spade.agent import Agent
     
     class PingAgent(Agent):
-        # Implementación completa del agente...
+        # Implementación completa...
     
-    class PongAgent(Agent):
-        # Implementación completa del agente...
-    
-    # Sistema de orquestación completo...
-    async def main():
-        # Ejecución completa del sistema...
-    
-    # Ejecutar todo
+    # Ejecución completa del sistema
     results = asyncio.run(main())
 ```
 

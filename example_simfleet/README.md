@@ -29,24 +29,7 @@ Kubeflow Component (pipeline.py)
 7. Genera reporte con estadísticas reales
 ```
 
-## Componentes del Sistema
 
-### **Vehículos Drone**
-- **Tipo**: `VehicleAgent` con comportamiento FSM
-- **Velocidad**: 2000/1800 unidades configurables
-- **Misión**: Desplazamiento origen → destino
-- **Estrategia**: `FSMOneShotVehicleBehaviour`
-
-### **SimFleet Engine**
-- **Framework**: SimFleet 2.0.1+ con SPADE backend
-- **Modo**: Headless con autorun (sin interfaz web)
-- **Configuración**: JSON embebido con vehículos y parámetros
-
-### **Diferencias con Ejemplos SPADE**
-- **Example 2**: Agentes de comunicación (Ping-Pong)
-- **Example 4**: Simulación de transporte (Fleet Management)
-- **Propósito**: Transporte vs Comunicación
-- **Complejidad**: Similar pero dominio diferente
 
 ## Estructura
 
@@ -54,7 +37,6 @@ Kubeflow Component (pipeline.py)
 example4_simfleet/
 ├── requirements.txt                    # Dependencias SimFleet
 ├── vehicles.json                       # Configuración de prueba local
-├── basic_simulation.py                 # Script de simulación básico
 ├── run_simulation.py                   # Ejecutor local con SPADE
 ├── pipeline.py                         # Componente Kubeflow embebido
 ├── compile_pipeline.py                 # Compilador del pipeline
@@ -119,14 +101,3 @@ pip install simfleet
 python run_simulation.py
 ```
 
-### **Ver Interfaz Web (Opcional)**
-- Abrir: `http://localhost:9000/app`
-- La simulación se ejecuta automáticamente (--autorun)
-
-## Características Técnicas
-
-- **Base Image**: `python:3.12`
-- **Packages**: `simfleet` (incluye SPADE automáticamente)
-- **Recursos**: 2 CPU, 2Gi RAM
-- **Duración**: 30-60 segundos típico
-- **Modo**: Headless compatible con Kubeflow

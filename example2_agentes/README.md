@@ -1,21 +1,21 @@
-# Example 2- agentes : SPADE Multi-Agent System
+# Example 2: SPADE Multi-Agent System
 
-**Sistema multi-agente completo** usando SPADE framework con comunicación Ping-Pong entre agentes.
+**Sistema multi-agente con comunicación Ping-Pong** usando SPADE framework.
 
-## 🎯 Objetivo
+## Objetivo
 
-Demostrar un **sistema multi-agente complejo** funcionando completamente en **Vertex AI**, donde dos agentes SPADE intercambian mensajes en tiempo real a través de un servidor XMPP integrado.
+Demostrar comunicación entre dos agentes SPADE en tiempo real a través de servidor XMPP integrado en Vertex AI.
 
-## 🏗️ Arquitectura del Sistema
+## Arquitectura del Sistema
 
-### **Diseño Embebido (Versión Final)**
+### **Diseño Embebido**
 ```
 Kubeflow Component (pipeline.py)
-├── ProcessManager           # Manejo seguro de procesos
-├── XMPP Server (spade run) # Servidor de mensajería
-├── PingAgent               # Envía mensajes ping
-├── PongAgent               # Responde con pong
-└── Orchestrator            # Coordina todo el sistema
+├── ProcessManager              # Manejo seguro de procesos  
+├── XMPP Server (spade run)     # Servidor de mensajería
+├── PingAgent                   # Envía mensajes ping
+├── PongAgent                   # Responde con pong
+└── Orchestrator                # Coordina todo el sistema
 ```
 
 ### **Flujo de Ejecución**
@@ -32,46 +32,34 @@ Kubeflow Component (pipeline.py)
 10. Genera reporte completo
 ```
 
-## 📊 Componentes del Sistema
+## Componentes del Sistema
 
-### **🤖 PingAgent**
-- **Función**: Envía mensajes ping periódicamente
-- **Comportamiento**: `CyclicBehaviour` que envía mensajes cada 2 segundos
+### **PingAgent**
 - **JID**: `ping@localhost`
+- **Comportamiento**: `CyclicBehaviour` que envía mensajes cada 2 segundos
 - **Límite**: Configurable via `max_pings` (default: 10)
 
-### **🏓 PongAgent**
-- **Función**: Recibe pings y responde con pongs
+### **PongAgent**
+- **JID**: `pong@localhost` 
 - **Comportamiento**: `CyclicBehaviour` que escucha mensajes
-- **JID**: `pong@localhost`
 - **Timeout**: 30 segundos por mensaje
 
-### **📡 Servidor XMPP**
+### **Servidor XMPP**
 - **Comando**: `spade run` (sin parámetros adicionales)
 - **Puerto**: Dinámico (encuentra puerto disponible)
 - **Base de datos**: En memoria (para containerización)
 
-### **🛡️ ProcessManager**
-- **Función**: Manejo seguro de procesos con cleanup automático
-- **Señales**: Maneja SIGTERM y SIGINT
-- **Cleanup**: Termina procesos gracefully o con kill si es necesario
-
-## 💾 Estructura de Archivos
+## Estructura
 
 ```
-example2/
-├── pipeline.py                    # 🎯 Pipeline embebido completo
-├── compile_pipeline.py            # 🔧 Compilador del pipeline
-├── spade_ping_pong_pipeline.yaml  # 📄 Pipeline listo para Vertex AI
-├── requirements.txt               # 📦 Dependencias (solo para referencia)
-├── requirements.txt               # 📦 Dependencias
-├── README.md                      # 📚 Esta documentación
-└── output/                        # 📊 Resultados de pruebas locales
-    ├── spade_ping_pong_results.json
-    └── summary.json
+example2_agentes/
+├── pipeline.py                     # Pipeline embebido completo
+├── compile_pipeline.py             # Compilador del pipeline
+├── spade_ping_pong_pipeline.yaml   # Pipeline listo para Vertex AI
+└── README.md                       # Esta documentación
 ```
 
-## 🚀 Cómo Usar
+## Uso
 
 ### **1. Compilar Pipeline**
 ```bash
@@ -90,10 +78,10 @@ python compile_pipeline.py
 
 ### **4. Ejecutar y Verificar**
 - Ejecuta el pipeline
-- Monitorea logs en tiempo real
+- Monitorea logs en tiempo real  
 - Descarga artifact TXT con resultados
 
-## 📋 Resultado Esperado
+## Resultado Esperado
 
 ### **Archivo TXT de Resultado:**
 ```
@@ -117,102 +105,5 @@ Agent Statistics:
 - Pong Agent Status: completed
 - Message History Count: 9-10
 
-🎯 RESULTADO FINAL: ✅ SUCCESS / ❌ FAILED
+RESULTADO FINAL: SUCCESS / FAILED
 ```
-
-### **Datos JSON Detallados:**
-- Historial completo de mensajes con timestamps
-- Estadísticas de cada agente
-- Metadatos de orquestación
-- Información del servidor XMPP
-
-## 🔍 Interpretación de Resultados
-
-### **✅ Éxito Total (100%)**
-- Messages Sent = Messages Received
-- Ambos agentes terminan correctamente
-- Sin errores de sistema
-
-### **✅ Éxito Parcial (90%+)**
-- Messages Sent > Messages Received (diferencia de 1-2)
-- **NORMAL** en sistemas distribuidos
-- Causado por timing entre agentes
-
-### **❌ Fallo del Sistema**
-- Servidor XMPP no inicia
-- Error en creación de agentes
-- Timeout completo sin mensajes
-
-## 🔧 Evolución del Desarrollo
-
-### **🏗️ Proceso de Desarrollo**
-
-#### **Versión 1: Arquitectura Modular (No funcionó en Vertex AI)**
-```
-Dockerfile → orchestrator.py → spade_ping_pong.py
-```
-**Problema**: Vertex AI no puede importar archivos externos
-
-#### **Versión 1.5: Arquitectura con Docker + pip (Redundante)**
-```
-base_image='custom-docker-image' + packages_to_install=[...]
-```
-**Problema**: Doble instalación de paquetes - en Docker build y runtime pip
-
-#### **Versión 2: Arquitectura Embebida (Funciona ✅)**
-```
-pipeline.py (todo embebido) → Vertex AI
-```
-**Solución**: Todo el código integrado en el componente Kubeflow
-
-### **🎓 Lecciones Aprendidas**
-
-1. **Kubeflow vs Docker**: El componente ejecuta código Python embebido, no el CMD del Dockerfile
-2. **Importaciones Externas**: No funcionan en Vertex AI - usar código embebido
-3. **Docker Redundancy**: No necesitas Docker images si usas packages_to_install
-4. **Timing Distribuido**: Los sistemas multi-agente requieren timing cuidadoso
-5. **Cleanup de Procesos**: Essential para evitar procesos zombie
-6. **Manejo de Errores**: Cada paso debe tener fallback y logging
-
-### **🔄 Patrón de Diseño Final**
-
-**Patrón "Embedded Multi-Agent":**
-- ✅ Todo el código en un solo archivo Python
-- ✅ Gestión completa del ciclo de vida
-- ✅ Manejo robusto de errores
-- ✅ Compatibilidad total con Vertex AI
-- ✅ Parametrización flexible
-
-## ⚡ Optimizaciones Técnicas
-
-### **Rendimiento**
-- **CPU**: 2 cores (para servidor + agentes)
-- **Memoria**: 1Gi (suficiente para SPADE + XMPP)
-- **Timeout**: 30s por mensaje (balance entre velocidad y robustez)
-
-### **Robustez**
-- **Puerto dinámico**: Evita conflictos
-- **Signal handling**: Cleanup automático
-- **Error recovery**: Continúa aunque fallen componentes individuales
-- **Logging detallado**: Para debugging en producción
-
-## 🎯 Casos de Uso
-
-Este ejemplo demuestra patrones aplicables a:
-
-- **🤖 Sistemas de IA distribuida** (múltiples modelos coordinándose)
-- **📊 Procesamiento distribuido** (workers + coordinator)
-- **🎮 Simulaciones multi-agente** (juegos, ecosistemas)
-- **🏭 Sistemas de control industrial** (sensores + actuadores)
-- **📈 Trading algorithms** (múltiples estrategias coordinadas)
-
-## 🏆 Valor Técnico
-
-**Este ejemplo demuestra dominio de:**
-- Sistemas multi-agente con SPADE
-- Integración compleja con Kubeflow
-- Manejo de procesos y recursos
-- Arquitectura distribuida robusta
-- Desarrollo cloud-native avanzado
-
-**¡Un sistema multi-agente completo funcionando en la nube!** 🚀
